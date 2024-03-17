@@ -1,9 +1,11 @@
-import tensorflow as tf
-from tensorflow.keras import layers, models
-import numpy as np
-import matplotlib.pyplot as plt
 import os
+
 import cv2
+import matplotlib.pyplot as plt
+import numpy as np
+import tensorflow as tf
+from tensorflow.keras import layers
+import inspect
 
 
 # Define the UNet model
@@ -36,6 +38,8 @@ def unet(input_shape):
 
 
 def preprocess_image(image_path, target_size=(224, 224)):
+
+    print(f"preprocess_image at script line {inspect.currentframe().f_lineno}")
     print(image_path)
     # Read the image
     image = cv2.imread(image_path)
@@ -68,26 +72,53 @@ def load_data(data_dir):
     images = []
     labels = []
 
+    # Create labels directory if it does not exist
+    labels_dir = os.path.join(data_dir, 'labels')
+    os.makedirs(labels_dir, exist_ok=True)
+
     # Iterate through the images directory
     for filename in os.listdir(os.path.join(data_dir, 'images')):
         # Load and preprocess image
         image_path = os.path.join(data_dir, 'images', filename)
-        image = cv2.imread(image_path)
-        image = preprocess_image(image)  # Preprocess as needed
+        image = preprocess_image(image_path)  # Preprocess as needed
         images.append(image)
 
+        print(f"Processing {filename} at script line {inspect.currentframe().f_lineno}")
+        print(filename)
+
         # Load and preprocess corresponding label
-        label_filename = filename.replace('.jpg', '_label.png')
+        label_filename = filename.replace('.jpeg', '_label.png')
         label_path = os.path.join(data_dir, 'labels', label_filename)
-        label = cv2.imread(label_path, cv2.IMREAD_GRAYSCALE)
-        label = preprocess_label(label)  # Preprocess as needed
+        label = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
+
+        print(
+            label_path,
+            label
+        )
+
+        cv2.imwrite(label_path, label)
+
+        print(f"preprocess_image at script line {inspect.currentframe().f_lineno}")
+        print(f"Label saved as {label_path}")
+
+        if label is None:
+            print(f"preprocess_image at script line {inspect.currentframe().f_lineno}")
+            print(f"Failed to read label image: {label_path}")
+            print(label)
+            continue
+
+        label = preprocess_label(label_path)  # Preprocess as needed
         labels.append(label)
+
+    images = np.stack(images, axis=0)
+    labels = np.stack(labels, axis=0)
 
     return images, labels
 
 
 # Train the model
 def train_model(images, labels):
+    labels = np.expand_dims(labels, axis=-1)
     input_shape = images[0].shape
 
     model = unet(input_shape)
